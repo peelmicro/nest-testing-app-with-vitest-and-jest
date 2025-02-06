@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PokemonsService } from './pokemons.service';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('PokemonsService', () => {
   let service: PokemonsService;
@@ -22,7 +22,21 @@ describe('PokemonsService', () => {
 
     const result = await service.create(data);
 
-    expect(result).toBe(`This action adds a ${data.name}`);
+    expect(result).toEqual({
+      hp: 0,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      id: expect.any(Number),
+      name: 'Pikachu',
+      sprites: [],
+      type: 'Electric',
+    });
+  });
+
+  it('should throw an error if Pokemon exists', async () => {
+    const data = { name: 'Pikachu', type: 'Electric' };
+    await service.create(data);
+
+    await expect(service.create(data)).rejects.toThrow(BadRequestException);
   });
 
   it('should return pokemon if exists', async () => {
