@@ -4,7 +4,7 @@ import { UpdatePokemonDto } from './dto/update-pokemon.dto';
 import { PaginationDto } from 'src/shared/dtos/pagination.dto';
 import { PokeapiResponse } from './interfaces/pokeapi.response';
 import { Pokemon } from './entities/pokemon.entity';
-import { PokeapiPokemonResponse } from './interfaces/pokeapi-pokemon.reponse';
+import { PokeapiPokemonResponse } from './interfaces/pokeapi-pokemon.response';
 
 @Injectable()
 export class PokemonsService {
