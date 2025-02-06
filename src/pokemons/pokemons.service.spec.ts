@@ -50,4 +50,31 @@ describe('PokemonsService', () => {
       `Pokemon with id ${id} not found`,
     );
   });
+
+  it('should check properties of the pokemon', async () => {
+    const id = 4;
+    const pokemon = await service.findOne(id);
+    console.log({ pokemon });
+
+    expect(pokemon).toHaveProperty('id');
+    expect(pokemon).toHaveProperty('name');
+
+    expect(pokemon).toEqual(
+      expect.objectContaining({
+        id: id,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        hp: expect.any(Number),
+      }),
+    );
+  });
+
+  it('should find all pokemons and cache them', async () => {
+    const pokemons = await service.findAll({ limit: 10, page: 1 });
+
+    expect(pokemons).toBeInstanceOf(Array);
+    expect(pokemons.length).toBe(10);
+
+    expect(service.paginatedPokemonsCache.has('10-1')).toBeTruthy();
+    expect(service.paginatedPokemonsCache.get('10-1')).toBe(pokemons);
+  });
 });
