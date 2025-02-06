@@ -54,7 +54,6 @@ describe('PokemonsService', () => {
   it('should check properties of the pokemon', async () => {
     const id = 4;
     const pokemon = await service.findOne(id);
-    console.log({ pokemon });
 
     expect(pokemon).toHaveProperty('id');
     expect(pokemon).toHaveProperty('name');
