@@ -113,4 +113,21 @@ describe('PokemonsController', () => {
 
     expect(result).toBe('Pokemon deleted');
   });
+
+  it('should call create service method', async () => {
+    jest
+      .spyOn(service, 'create')
+      .mockImplementation(() => Promise.resolve(mockPokemons[0]));
+
+    await controller.create({
+      name: 'Pikachu',
+      type: 'Electric',
+    });
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(service.create).toHaveBeenCalledWith({
+      name: 'Pikachu',
+      type: 'Electric',
+    });
+  });
 });
