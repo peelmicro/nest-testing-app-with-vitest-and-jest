@@ -165,4 +165,38 @@ describe('Pokemons (e2e)', () => {
       statusCode: 404,
     });
   });
+
+  it('/pokemons/:id (PATCH) should update pokemon', async () => {
+    const pokemonId = 1;
+    const dto = { name: 'Pikachu', type: 'Electric' };
+    const pokemonResponse = await request(app.getHttpServer()).get(
+      `/pokemons/${pokemonId}`,
+    );
+
+    const bulbasaur = pokemonResponse.body as Pokemon;
+
+    const response = await request(app.getHttpServer())
+      .patch(`/pokemons/${pokemonId}`)
+      .send(dto);
+
+    const updatedPokemon = response.body as Pokemon;
+
+    // expect(bulbasaur).toEqual(updatedPokemon);
+    expect(bulbasaur.hp).toBe(updatedPokemon.hp);
+    expect(bulbasaur.id).toBe(updatedPokemon.id);
+    expect(bulbasaur.sprites).toEqual(updatedPokemon.sprites);
+
+    expect(updatedPokemon.name).toBe(dto.name);
+    expect(updatedPokemon.type).toBe(dto.type);
+  });
+
+  it('/pokemons/:id (PATCH) should throw an 404', async () => {
+    const id = 4_000_000;
+
+    const pokemonResponse = await request(app.getHttpServer())
+      .patch(`/pokemons/${id}`)
+      .send({});
+
+    expect(pokemonResponse.statusCode).toBe(404);
+  });
 });
