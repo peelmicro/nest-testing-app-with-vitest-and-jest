@@ -115,4 +115,54 @@ describe('Pokemons (e2e)', () => {
       expect(pokemon).toHaveProperty('sprites');
     });
   });
+
+  it('/pokemons/:id (GET) should return a Pokémon by ID', async () => {
+    const response = await request(app.getHttpServer()).get('/pokemons/1');
+
+    const pokemon = response.body as Pokemon;
+
+    expect(response.statusCode).toBe(200);
+    expect(pokemon).toEqual({
+      id: 1,
+      name: 'bulbasaur',
+      type: 'grass',
+      hp: 45,
+      sprites: [
+        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png',
+        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/1.png',
+      ],
+    });
+  });
+
+  it('/pokemons/:id (GET) should return a Charmander', async () => {
+    const response = await request(app.getHttpServer()).get('/pokemons/4');
+
+    const pokemon = response.body as Pokemon;
+
+    expect(response.statusCode).toBe(200);
+    expect(pokemon).toEqual({
+      id: 4,
+      name: 'charmander',
+      type: 'fire',
+      hp: 39,
+      sprites: [
+        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png',
+        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/4.png',
+      ],
+    });
+  });
+
+  it('/pokemons/:id (GET) should return Not found', async () => {
+    const pokemonId = 400_001;
+    const response = await request(app.getHttpServer()).get(
+      `/pokemons/${pokemonId}`,
+    );
+
+    expect(response.statusCode).toBe(404);
+    expect(response.body).toEqual({
+      message: `Pokemon with id ${pokemonId} not found`,
+      error: 'Not Found',
+      statusCode: 404,
+    });
+  });
 });
