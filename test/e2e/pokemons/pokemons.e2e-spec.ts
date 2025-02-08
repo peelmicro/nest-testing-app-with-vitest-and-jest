@@ -199,4 +199,25 @@ describe('Pokemons (e2e)', () => {
 
     expect(pokemonResponse.statusCode).toBe(404);
   });
+
+  it('/pokemons/:id (DELETE) should delete pokemon', async () => {
+    const id = 1;
+
+    const pokemonResponse = await request(app.getHttpServer()).delete(
+      `/pokemons/${id}`,
+    );
+
+    expect(pokemonResponse.statusCode).toBe(200);
+    expect(pokemonResponse.text).toBe(`Pokemon bulbasaur removed!`);
+  });
+
+  it('/pokemons/:id (DELETE) should return 404', async () => {
+    const id = 1_000_000;
+
+    const pokemonResponse = await request(app.getHttpServer()).delete(
+      `/pokemons/${id}`,
+    );
+
+    expect(pokemonResponse.statusCode).toBe(404);
+  });
 });
