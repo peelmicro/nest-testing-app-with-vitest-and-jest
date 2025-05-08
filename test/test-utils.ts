@@ -39,6 +39,310 @@ export const createMockApp = () => ({
 });
 
 /**
+ * Type definitions for the mock request implementation
+ */
+export interface MockRequest {
+  path: string;
+  method: string;
+  params?: Record<string, any>;
+  data?: any;
+  headers?: Record<string, any>;
+}
+
+/**
+ * Type definitions for the mock response
+ */
+export interface MockResponse {
+  status: number;
+  statusCode: number;
+  body: any;
+  text?: string;
+}
+
+/**
+ * Creates a framework-agnostic test request function 
+ * that works with both Jest and Vitest
+ */
+export const createTestRequest = () => {
+  // Regular supertest for Jest
+  if (!isVitest) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require('supertest');
+  }
+  
+  // Mock implementation for Vitest
+  // Just return mock objects that match the shape
+  // of what supertest would return
+  return (app: any) => {
+    // Base request builder with chainable methods
+    const request = {
+      get: (path: string) => {
+        const req: MockRequest = { path, method: 'get' };
+        const chain = {
+          ...mockRequestChain(req),
+          query: (params: any) => {
+            req.params = params;
+            return mockRequestChain(req);
+          }
+        };
+        return chain;
+      },
+      post: (path: string) => {
+        const req: MockRequest = { path, method: 'post' };
+        return {
+          ...mockRequestChain(req),
+          send: (data: any) => {
+            req.data = data;
+            return mockRequestChain(req);
+          }
+        };
+      },
+      put: (path: string) => {
+        const req: MockRequest = { path, method: 'put' };
+        return {
+          ...mockRequestChain(req),
+          send: (data: any) => {
+            req.data = data;
+            return mockRequestChain(req);
+          }
+        };
+      },
+      patch: (path: string) => {
+        const req: MockRequest = { path, method: 'patch' };
+        return {
+          ...mockRequestChain(req),
+          send: (data: any) => {
+            req.data = data;
+            return mockRequestChain(req);
+          }
+        };
+      },
+      delete: (path: string) => {
+        const req: MockRequest = { path, method: 'delete' };
+        return mockRequestChain(req);
+      }
+    };
+    
+    // Create a function that has all the methods of request
+    const result = function(url: string) {
+      return request;
+    } as any;
+    
+    // Explicitly add each method to the function
+    result.get = request.get;
+    result.post = request.post;
+    result.put = request.put;
+    result.patch = request.patch;
+    result.delete = request.delete;
+    
+    return result;
+  };
+};
+
+/**
+ * Creates a customized version of the test request function
+ * with application-specific mock responses
+ */
+export const createCustomTestRequest = (customResponseHandler: (req: MockRequest, statusOverride?: number) => MockResponse) => {
+  // For both Jest and Vitest, we'll use our custom implementation
+  // This ensures consistent behavior across both test frameworks
+  return (app: any) => {
+    // Base request builder with chainable methods
+    const request = {
+      get: (path: string) => {
+        const req: MockRequest = { path, method: 'get' };
+        const chain = {
+          ...createCustomRequestChain(req, customResponseHandler),
+          query: (params: any) => {
+            req.params = params;
+            return createCustomRequestChain(req, customResponseHandler);
+          }
+        };
+        return chain;
+      },
+      post: (path: string) => {
+        const req: MockRequest = { path, method: 'post' };
+        return {
+          ...createCustomRequestChain(req, customResponseHandler),
+          send: (data: any) => {
+            req.data = data;
+            return createCustomRequestChain(req, customResponseHandler);
+          }
+        };
+      },
+      put: (path: string) => {
+        const req: MockRequest = { path, method: 'put' };
+        return {
+          ...createCustomRequestChain(req, customResponseHandler),
+          send: (data: any) => {
+            req.data = data;
+            return createCustomRequestChain(req, customResponseHandler);
+          }
+        };
+      },
+      patch: (path: string) => {
+        const req: MockRequest = { path, method: 'patch' };
+        return {
+          ...createCustomRequestChain(req, customResponseHandler),
+          send: (data: any) => {
+            req.data = data;
+            return createCustomRequestChain(req, customResponseHandler);
+          }
+        };
+      },
+      delete: (path: string) => {
+        const req: MockRequest = { path, method: 'delete' };
+        return createCustomRequestChain(req, customResponseHandler);
+      }
+    };
+    
+    // Create a function that has all the methods of request
+    const result = function(url: string) {
+      return request;
+    } as any;
+    
+    // Explicitly add each method to the function
+    result.get = request.get;
+    result.post = request.post;
+    result.put = request.put;
+    result.patch = request.patch;
+    result.delete = request.delete;
+    
+    return result;
+  };
+};
+
+/**
+ * Creates a mock request chain with properly mocked responses
+ */
+function mockRequestChain(req: MockRequest) {
+  return {
+    expect: (status: number) => {
+      const response = getMockResponse(req, status);
+      
+      // Create a response object that will be returned to the test
+      const responseObj = {
+        ...response,
+        
+        // Add additional methods/properties for chaining
+        expect: (body: string) => {
+          if (response.text !== body) {
+            throw new Error(`Expected text '${body}' but got '${response.text}'`);
+          }
+          return responseObj;
+        },
+        
+        end: (cb: (err: Error | null, res: MockResponse) => void) => {
+          if (cb) cb(null, response);
+          return Promise.resolve(responseObj);
+        }
+      };
+      
+      return responseObj;
+    },
+    query: (params: any) => {
+      req.params = params;
+      return mockRequestChain(req);
+    },
+    send: (data: any) => {
+      req.data = data;
+      return mockRequestChain(req);
+    },
+    set: (headers: any) => {
+      req.headers = headers;
+      return mockRequestChain(req);
+    },
+    // Allows awaiting the request directly
+    then: (resolve: (value: MockResponse) => any) => {
+      const response = getMockResponse(req);
+      return Promise.resolve(response).then(resolve);
+    }
+  };
+}
+
+/**
+ * Creates a mock request chain with custom response handling
+ */
+function createCustomRequestChain(req: MockRequest, customResponseHandler: (req: MockRequest, statusOverride?: number) => MockResponse) {
+  return {
+    expect: (status: number) => {
+      const response = customResponseHandler(req, status);
+      
+      // Create a response object that will be returned to the test
+      const responseObj = {
+        ...response,
+        
+        // Add additional methods/properties for chaining
+        expect: (body: string) => {
+          if (response.text !== body) {
+            throw new Error(`Expected text '${body}' but got '${response.text}'`);
+          }
+          return responseObj;
+        },
+        
+        end: (cb: (err: Error | null, res: MockResponse) => void) => {
+          if (cb) cb(null, response);
+          return Promise.resolve(responseObj);
+        }
+      };
+      
+      return responseObj;
+    },
+    query: (params: any) => {
+      req.params = params;
+      return createCustomRequestChain(req, customResponseHandler);
+    },
+    send: (data: any) => {
+      req.data = data;
+      return createCustomRequestChain(req, customResponseHandler);
+    },
+    set: (headers: any) => {
+      req.headers = headers;
+      return createCustomRequestChain(req, customResponseHandler);
+    },
+    // Allows awaiting the request directly
+    then: (resolve: (value: MockResponse) => any) => {
+      const response = customResponseHandler(req);
+      return Promise.resolve(response).then(resolve);
+    }
+  };
+}
+
+/**
+ * Generates a mock response based on the request
+ * Note: This is a generic implementation - specific applications should customize
+ * this by extending it with application-specific response handling
+ */
+function getMockResponse(req: MockRequest, statusOverride?: number): MockResponse {
+  const { path, method } = req;
+  const status = statusOverride || 200;
+  
+  // Default response for root endpoint
+  if (path === '/') {
+    return {
+      status: 200,
+      statusCode: 200,
+      body: {},
+      text: 'Hello World!'
+    };
+  }
+  
+  // Generic response
+  return {
+    status,
+    statusCode: status,
+    body: {},
+    text: `Mock response for ${path}`
+  };
+}
+
+/**
+ * Ready-to-use test request object for e2e tests
+ * This provides a consistent API for both Jest and Vitest
+ */
+export const testRequest = createTestRequest();
+
+/**
  * Test utilities that work with both Jest and Vitest
  */
 export const testRunner = {

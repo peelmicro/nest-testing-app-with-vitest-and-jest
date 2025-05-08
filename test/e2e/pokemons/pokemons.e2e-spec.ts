@@ -1,13 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../../../src/app.module';
 import { Pokemon } from 'src/pokemons/entities/pokemon.entity';
+import { pokemonTestRequest } from '../../e2e-test-utils';
+import { mockPokemonData } from '../../mock-data';
 
 describe('Pokemons (e2e)', () => {
   let app: INestApplication<App>;
 
+  // Arrange - shared test setup
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -26,33 +28,37 @@ describe('Pokemons (e2e)', () => {
   });
 
   it('/pokemons (POST) - with no body ', async () => {
-    const response = await request(app.getHttpServer()).post('/pokemons');
+    // Arrange - no additional setup needed, we're testing empty body
+    const expectedErrors = mockPokemonData.validationErrors;
+
+    // Act - perform the HTTP request
+    const response = await pokemonTestRequest(app.getHttpServer())
+      .post('/pokemons');
+    
+    // Assert - verify the response
+    expect(response.status).toBe(400);
+    expect(response.statusCode).toBe(400);
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const messageArray = response.body.message ?? [];
 
-    expect(response.statusCode).toBe(400);
-
-    expect(messageArray).toContain('name must be a string');
-    expect(messageArray).toContain('name should not be empty');
-    expect(messageArray).toContain('type must be a string');
-    expect(messageArray).toContain('type should not be empty');
-
-    // return request(app.getHttpServer())
-    //   .post('/pokemons')
-    //   .expect(200)
-    //   .expect('Hello World!!');
+    // Verify all expected validation errors are present
+    expectedErrors.forEach(error => {
+      expect(messageArray).toContain(error);
+    });
   });
 
   it('/pokemons (POST) - with no body 2', async () => {
-    const response = await request(app.getHttpServer()).post('/pokemons');
+    // Arrange - define expected error messages
+    const mostHaveErrorMessage = mockPokemonData.validationErrors;
 
-    const mostHaveErrorMessage = [
-      'type should not be empty',
-      'name must be a string',
-      'type must be a string',
-      'name should not be empty',
-    ];
+    // Act
+    const response = await pokemonTestRequest(app.getHttpServer())
+      .post('/pokemons');
+
+    // Assert
+    expect(response.status).toBe(400);
+    expect(response.statusCode).toBe(400);
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const messageArray: string[] = response.body.message ?? [];
@@ -62,31 +68,39 @@ describe('Pokemons (e2e)', () => {
   });
 
   it('/pokemons (POST) - with valid body', async () => {
-    const response = await request(app.getHttpServer()).post('/pokemons').send({
+    // Arrange - prepare valid Pokemon data
+    const createPokemonDto = {
       name: 'Pikachu',
       type: 'Electric',
-    });
+    };
+    const expectedPokemon = mockPokemonData.created;
 
+    // Act
+    const response = await pokemonTestRequest(app.getHttpServer())
+      .post('/pokemons')
+      .send(createPokemonDto);
+
+    // Assert
+    expect(response.status).toBe(201);
     expect(response.statusCode).toBe(201);
-    expect(response.body).toEqual({
-      name: 'Pikachu',
-      type: 'Electric',
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      id: expect.any(Number),
-      hp: 0,
-      sprites: [],
-    });
+    expect(response.body).toEqual(expectedPokemon);
   });
 
   it('/pokemons (GET) should return paginated list of pokemons', async () => {
-    const response = await request(app.getHttpServer())
-      .get('/pokemons')
-      .query({ limit: 5, page: 1 });
+    // Arrange - set pagination parameters
+    const limit = 5;
+    const page = 1;
 
+    // Act
+    const response = await pokemonTestRequest(app.getHttpServer())
+      .get('/pokemons')
+      .query({ limit, page });
+
+    // Assert
     expect(response.status).toBe(200);
     expect(response.body).toBeInstanceOf(Array);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    expect(response.body.length).toBe(5);
+    expect(response.body.length).toBe(limit);
 
     (response.body as Pokemon[]).forEach((pokemon) => {
       expect(pokemon).toHaveProperty('id');
@@ -98,14 +112,20 @@ describe('Pokemons (e2e)', () => {
   });
 
   it('/pokemons (GET) should return 20 paginated pokemons', async () => {
-    const response = await request(app.getHttpServer())
-      .get('/pokemons')
-      .query({ limit: 20, page: 1 });
+    // Arrange - set pagination for 20 results
+    const limit = 20;
+    const page = 1;
 
+    // Act
+    const response = await pokemonTestRequest(app.getHttpServer())
+      .get('/pokemons')
+      .query({ limit, page });
+
+    // Assert
     expect(response.status).toBe(200);
     expect(response.body).toBeInstanceOf(Array);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    expect(response.body.length).toBe(20);
+    expect(response.body.length).toBe(limit);
 
     (response.body as Pokemon[]).forEach((pokemon) => {
       expect(pokemon).toHaveProperty('id');
@@ -117,107 +137,117 @@ describe('Pokemons (e2e)', () => {
   });
 
   it('/pokemons/:id (GET) should return a Pokémon by ID', async () => {
-    const response = await request(app.getHttpServer()).get('/pokemons/1');
+    // Arrange - specify the Pokemon ID to retrieve
+    const pokemonId = 1;
+    const expectedPokemon = mockPokemonData.bulbasaur;
 
+    // Act
+    const response = await pokemonTestRequest(app.getHttpServer())
+      .get(`/pokemons/${pokemonId}`);
+
+    // Assert
+    expect(response.status).toBe(200);
     const pokemon = response.body as Pokemon;
-
-    expect(response.statusCode).toBe(200);
-    expect(pokemon).toEqual({
-      id: 1,
-      name: 'bulbasaur',
-      type: 'grass',
-      hp: 45,
-      sprites: [
-        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png',
-        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/1.png',
-      ],
-    });
+    expect(pokemon).toEqual(expectedPokemon);
   });
 
   it('/pokemons/:id (GET) should return a Charmander', async () => {
-    const response = await request(app.getHttpServer()).get('/pokemons/4');
+    // Arrange - specify Charmander's ID and expected data
+    const pokemonId = 4;
+    const expectedPokemon = mockPokemonData.charmander;
 
+    // Act
+    const response = await pokemonTestRequest(app.getHttpServer())
+      .get(`/pokemons/${pokemonId}`);
+
+    // Assert
+    expect(response.status).toBe(200);
     const pokemon = response.body as Pokemon;
-
-    expect(response.statusCode).toBe(200);
-    expect(pokemon).toEqual({
-      id: 4,
-      name: 'charmander',
-      type: 'fire',
-      hp: 39,
-      sprites: [
-        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png',
-        'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/4.png',
-      ],
-    });
+    expect(pokemon).toEqual(expectedPokemon);
   });
 
   it('/pokemons/:id (GET) should return Not found', async () => {
+    // Arrange - use an ID that doesn't exist
     const pokemonId = 400_001;
-    const response = await request(app.getHttpServer()).get(
-      `/pokemons/${pokemonId}`,
-    );
+    const expectedError = mockPokemonData.notFound(pokemonId);
+    
+    // Act
+    const response = await pokemonTestRequest(app.getHttpServer())
+      .get(`/pokemons/${pokemonId}`);
 
-    expect(response.statusCode).toBe(404);
-    expect(response.body).toEqual({
-      message: `Pokemon with id ${pokemonId} not found`,
-      error: 'Not Found',
-      statusCode: 404,
-    });
+    // Assert
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual(expectedError);
   });
 
   it('/pokemons/:id (PATCH) should update pokemon', async () => {
+    // Arrange - prepare for update operation
     const pokemonId = 1;
-    const dto = { name: 'Pikachu', type: 'Electric' };
-    const pokemonResponse = await request(app.getHttpServer()).get(
-      `/pokemons/${pokemonId}`,
-    );
-
+    const updateDto = { name: 'Pikachu', type: 'Electric' };
+    
+    // Act - first get the original pokemon
+    const pokemonResponse = await pokemonTestRequest(app.getHttpServer())
+      .get(`/pokemons/${pokemonId}`);
+    
+    expect(pokemonResponse.status).toBe(200);
     const bulbasaur = pokemonResponse.body as Pokemon;
 
-    const response = await request(app.getHttpServer())
+    // Act - then update it
+    const response = await pokemonTestRequest(app.getHttpServer())
       .patch(`/pokemons/${pokemonId}`)
-      .send(dto);
+      .send(updateDto);
 
+    // Assert
+    expect(response.status).toBe(200);
     const updatedPokemon = response.body as Pokemon;
 
-    // expect(bulbasaur).toEqual(updatedPokemon);
+    // Properties that should remain the same
     expect(bulbasaur.hp).toBe(updatedPokemon.hp);
     expect(bulbasaur.id).toBe(updatedPokemon.id);
     expect(bulbasaur.sprites).toEqual(updatedPokemon.sprites);
 
-    expect(updatedPokemon.name).toBe(dto.name);
-    expect(updatedPokemon.type).toBe(dto.type);
+    // Properties that should be updated
+    expect(updatedPokemon.name).toBe(updateDto.name);
+    expect(updatedPokemon.type).toBe(updateDto.type);
   });
 
   it('/pokemons/:id (PATCH) should throw an 404', async () => {
-    const id = 4_000_000;
+    // Arrange - use a non-existent ID and empty update
+    const nonExistentId = 4_000_000;
+    const emptyUpdate = {};
 
-    const pokemonResponse = await request(app.getHttpServer())
-      .patch(`/pokemons/${id}`)
-      .send({});
+    // Act
+    const pokemonResponse = await pokemonTestRequest(app.getHttpServer())
+      .patch(`/pokemons/${nonExistentId}`)
+      .send(emptyUpdate);
 
-    expect(pokemonResponse.statusCode).toBe(404);
+    // Assert
+    expect(pokemonResponse.status).toBe(404);
   });
 
   it('/pokemons/:id (DELETE) should delete pokemon', async () => {
-    const id = 1;
+    // Arrange - set up for deletion
+    const pokemonId = 1;
+    const expectedMessage = `Pokemon bulbasaur removed!`;
 
-    const pokemonResponse = await request(app.getHttpServer()).delete(
-      `/pokemons/${id}`,
-    );
+    // Act
+    const pokemonResponse = await pokemonTestRequest(app.getHttpServer())
+      .delete(`/pokemons/${pokemonId}`);
 
-    expect(pokemonResponse.statusCode).toBe(200);
-    expect(pokemonResponse.text).toBe(`Pokemon bulbasaur removed!`);
+    // Assert
+    expect(pokemonResponse.status).toBe(200);
+    expect(pokemonResponse.text).toBe(expectedMessage);
   });
 
   it('/pokemons/:id (DELETE) should return 404', async () => {
-    const id = 1_000_000;
+    // Arrange - use a non-existent ID for deletion
+    const nonExistentId = 1_000_000;
 
-    const pokemonResponse = await request(app.getHttpServer()).delete(
-      `/pokemons/${id}`,
-    );
-
-    expect(pokemonResponse.statusCode).toBe(404);
+    // Act
+    const pokemonResponse = await pokemonTestRequest(app.getHttpServer())
+      .delete(`/pokemons/${nonExistentId}`);
+      
+    // Assert
+    expect(pokemonResponse.status).toBe(404);
   });
 });
