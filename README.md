@@ -1,99 +1,241 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# NestJS Testing with Jest and Vitest
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This project demonstrates how to set up a NestJS application to work with both Jest and Vitest testing frameworks simultaneously. The original codebase was created as part of the "NestJS + Testing: Pruebas unitarias y end to end (e2e)" course by dev/talles, available on [dev/talles: NestJS + Testing: Pruebas unitarias y end to end (e2e)](https://cursos.devtalles.com/courses/NestJS-Testing) and [Udemy: NestJS + Testing: Pruebas unitarias y end to end (e2e)](https://www.udemy.com/course/nestjs-testing-e2e/).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## Project Setup
 
 ```bash
-$ npm install
+# Install dependencies
+npm install
+
+# Run Jest tests
+npm run test
+
+# Run Vitest tests
+npm run test:vitest
+
+# Compare performance between Jest and Vitest
+npm run test:compare
 ```
 
-## Compile and run the project
+## How the Testing Solution Works
 
-```bash
-# development
-$ npm run start
+This project uses a truly framework-agnostic approach to allow tests to run with both Jest and Vitest. The key components are:
 
-# watch mode
-$ npm run start:dev
+### 1. Framework-agnostic Test Utilities
 
-# production mode
-$ npm run start:prod
+The `test/test-utils.ts` file provides a set of utilities that detect which test framework is running and use the appropriate methods:
+
+```typescript
+// Detect which test framework is being used
+const isVitest = typeof globalThis.vi !== 'undefined';
+
+export const testRunner = {
+  fn: (implementation?: (...args: any[]) => any): any => {
+    if (isVitest) {
+      return globalThis.vi.fn(implementation);
+    }
+    return jest.fn(implementation);
+  },
+  
+  spyOn: (object: any, method: string | number): any => {
+    if (isVitest) {
+      return globalThis.vi.spyOn(object, method);
+    }
+    return jest.spyOn(object, method);
+  },
+  
+  // Additional utilities...
+};
 ```
 
-## Run tests
+### 2. Generic Framework-specific Setup Files
 
-```bash
-# unit tests
-$ npm run test
+The setup files are now completely framework-agnostic and application-agnostic:
 
-# e2e tests
-$ npm run test:e2e
+- `test/jest-setup.ts`: Only mocks core NestJS framework objects
+- `test/vitest-setup.ts`: Only mocks core NestJS framework objects
 
-# test coverage
-$ npm run test:cov
+These files handle framework-specific setup without any application-specific code:
+
+```typescript
+// Mock NestJS core to prevent actual app startup
+jest.mock('@nestjs/core', () => {
+  const originalModule = jest.requireActual('@nestjs/core');
+  return {
+    ...originalModule,
+    NestFactory: {
+      ...originalModule.NestFactory,
+      create: jest.fn().mockResolvedValue(mockApp),
+    },
+  };
+});
 ```
 
-## Deployment
+### 3. Self-contained Test Files
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Application-specific mocking happens in the test files themselves, making them self-contained and ensuring the setup files remain reusable. We use a hybrid approach that combines framework detection with a shared implementation:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+```typescript
+// In main.spec.ts
+import { testRunner, isVitest } from '../test/test-utils';
 
-```bash
-$ npm install -g mau
-$ mau deploy
+// Create a framework-agnostic bootstrap mock function
+const createBootstrapMock = () => {
+  return testRunner.fn().mockImplementation(async () => {
+    // Common implementation, framework-agnostic
+    // ...
+  });
+};
+
+// Setup framework-specific mocks with shared implementation
+if (isVitest) {
+  // Vitest environment
+  globalThis.vi.mock('./main', async () => {
+    const originalModule = await globalThis.vi.importActual('./main');
+    return {
+      ...(originalModule as object),
+      bootstrap: createBootstrapMock(), // Use the shared implementation
+    };
+  });
+} else {
+  // Jest environment
+  jest.mock('./main', () => {
+    const actualModule = jest.requireActual('./main');
+    return {
+      ...actualModule,
+      bootstrap: createBootstrapMock(), // Use the shared implementation
+    };
+  });
+}
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Writing Tests Compatible with Both Frameworks
 
-## Resources
+When writing tests that work with both Jest and Vitest, follow these guidelines:
 
-Check out a few resources that may come in handy when working with NestJS:
+1. **Import test utilities from the common file**:
+   ```typescript
+   import { testRunner } from '../../test/test-utils';
+   ```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+2. **Use the framework-agnostic utilities**:
+   ```typescript
+   // Instead of jest.fn() or vi.fn()
+   const mockFunction = testRunner.fn();
+   
+   // Instead of jest.spyOn() or vi.spyOn()
+   const spy = testRunner.spyOn(service, 'findAll');
+   ```
 
-## Support
+3. **Handle framework-specific mocking in the test file itself**:
+   ```typescript
+   if (typeof jest !== 'undefined') {
+     // Jest-specific mocking
+     jest.mock('./your-module', () => { /* ... */ });
+   } else {
+     // Vitest-specific mocking
+     const vi = globalThis.vi;
+     vi.mock('./your-module', async () => { /* ... */ });
+   }
+   ```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+4. **Use assertions that work in both frameworks** (fortunately, Jest and Vitest share very similar assertion APIs)
 
-## Stay in touch
+## Key Benefits of Supporting Both Frameworks
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Performance Comparison
+
+Based on our testing, Vitest demonstrates significant performance advantages over Jest when running NestJS tests:
+
+| Metric | Jest | Vitest | Difference |
+|--------|------|--------|------------|
+| Total time | 15.30s | 4.73s | Vitest is 3.2x faster |
+| CPU usage | 1038% | 769% | Vitest uses 26% less CPU |
+| Memory (max) | 408436k | 149724k | Vitest uses 63% less memory |
+| Page faults | 892807 | 348820 | Vitest has 61% fewer page faults |
+
+### Advantages of Each Framework
+
+**Jest:**
+- Mature ecosystem with wide adoption
+- Well-documented
+- Built-in code coverage
+- Works well with Create React App and other popular toolchains
+
+**Vitest:**
+- Significantly faster execution
+- Lower resource consumption
+- Better integration with Vite for modern projects
+- Compatible with TypeScript and ESM out of the box
+
+## Important Implementation Details
+
+This solution prevents the application from starting during test execution by selectively mocking the NestFactory.create method while preserving other functionality. The key design principles:
+
+1. **Framework Detection**: The test utilities detect whether Jest or Vitest is running
+2. **Module Preservation**: Original module functionality is kept intact with spreading
+3. **Selective Mocking**: Only override specific methods needed (like NestFactory.create)
+4. **Consistent Mocks**: Use a shared mockApp instance for all tests
+5. **Self-contained Tests**: Application-specific mocks live in the test files, not in setup
+6. **Clean Separation**: Setup files only contain framework-specific, application-agnostic code
+
+### Adapting to Your Own NestJS Application
+
+When adapting this testing approach to your own NestJS application:
+
+1. Copy the setup files and test-utils.ts as-is (they're fully framework-agnostic)
+2. In your test files, add application-specific mocking with framework detection:
+   ```typescript
+   // In your test file
+   if (typeof jest !== 'undefined') {
+     jest.mock('./your-module', () => { /* Jest-specific mocking */ });
+   } else {
+     vi.mock('./your-module', async () => { /* Vitest-specific mocking */ });
+   }
+   ```
+3. Use the `testRunner` utilities in your tests for creating mocks and spies
+
+This approach ensures maximum reusability of the testing infrastructure while keeping tests self-contained and clear.
+
+## Why Different Mocking Approaches for Jest and Vitest
+
+Despite our efforts to create a fully unified testing approach, we still need to use different mocking code for Jest and Vitest in test files. This is due to fundamental technical differences between the two frameworks:
+
+1. **Module Hoisting**: Jest automatically hoists mock declarations to the top of the file before any imports are processed. Vitest, however, follows the standard ESM execution order, meaning mocks must be defined before they're used.
+
+2. **Synchronous vs Asynchronous APIs**:
+   - Jest's module mocking is synchronous: `jest.mock('./path', () => {...})`
+   - Vitest's module mocking is asynchronous: `vi.mock('./path', async () => {...})`
+
+3. **Module Importing**:
+   - Jest uses synchronous `requireActual` to get the original module
+   - Vitest uses asynchronous `importActual` to get the original module
+
+4. **ESM vs CommonJS**: Jest was originally designed for CommonJS modules, while Vitest was built from the ground up for ESM compatibility.
+
+These fundamental differences prevent us from creating a single, unified mocking function that works perfectly for both frameworks. Our solution uses the hybrid approach of framework detection with shared implementation logic.
+
+## Limitations and Future Improvements
+
+This solution represents a practical approach to supporting both Jest and Vitest in a NestJS application, but it's not perfect and could be improved:
+
+1. **Mock Module Limitations**: Our framework-agnostic mock module utility works for simple cases but can't fully abstract away all the differences between Jest and Vitest mocking systems.
+
+2. **Test File Complexity**: Test files still need conditional code for framework detection, which adds complexity.
+
+3. **Type Safety**: Some areas use type assertions (`as any`) to satisfy TypeScript when dealing with cross-framework types.
+
+4. **Module Resolution**: Path resolution can be tricky when mocking modules across different frameworks.
+
+Potential improvements could include:
+
+- Developing more sophisticated mocking utilities that better abstract framework differences
+- Creating a custom Babel/TypeScript transformer to handle framework-specific code at compile time
+- Exploring ways to make the test files even more framework-agnostic
+
+Despite these limitations, the current approach provides a workable solution that allows teams to use either Jest or Vitest without maintaining separate test codebases.
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This project is [MIT licensed](LICENSE).

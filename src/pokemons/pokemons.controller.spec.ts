@@ -4,6 +4,7 @@ import { PokemonsService } from './pokemons.service';
 import { PaginationDto } from 'src/shared/dtos/pagination.dto';
 import { Pokemon } from './entities/pokemon.entity';
 import { UpdatePokemonDto } from './dto/update-pokemon.dto';
+import { testRunner } from '../../test/test-utils';
 
 const mockPokemons: Pokemon[] = [
   {
@@ -49,7 +50,7 @@ describe('PokemonsController', () => {
   it('should have called the service with correct parameter', async () => {
     const dto: PaginationDto = { limit: 10, page: 1 };
 
-    jest.spyOn(service, 'findAll');
+    testRunner.spyOn(service, 'findAll');
 
     await controller.findAll(dto);
 
@@ -62,7 +63,7 @@ describe('PokemonsController', () => {
   it('should have called the service and check the result', async () => {
     const dto: PaginationDto = { limit: 10, page: 1 };
 
-    jest
+    testRunner
       .spyOn(service, 'findAll')
       .mockImplementation(() => Promise.resolve(mockPokemons));
 
@@ -73,7 +74,7 @@ describe('PokemonsController', () => {
   });
 
   it('should have called the service with the correct id (findOne)', async () => {
-    const spy = jest
+    const spy = testRunner
       .spyOn(service, 'findOne')
       .mockImplementation(() => Promise.resolve(mockPokemons[0]));
 
@@ -86,7 +87,7 @@ describe('PokemonsController', () => {
   });
 
   it('should have called the service with the correct id and data (update)', async () => {
-    jest
+    testRunner
       .spyOn(service, 'update')
       .mockImplementation(() => Promise.resolve(mockPokemons[0]));
 
@@ -103,7 +104,7 @@ describe('PokemonsController', () => {
   });
 
   it('should have called delete with the correct id (delete)', async () => {
-    jest
+    testRunner
       .spyOn(service, 'remove')
       .mockImplementation(() => Promise.resolve('Pokemon deleted'));
 
@@ -115,7 +116,7 @@ describe('PokemonsController', () => {
   });
 
   it('should call create service method', async () => {
-    jest
+    testRunner
       .spyOn(service, 'create')
       .mockImplementation(() => Promise.resolve(mockPokemons[0]));
 

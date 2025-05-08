@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PokemonsService } from './pokemons.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { UpdatePokemonDto } from './dto/update-pokemon.dto';
+import { testRunner } from '../../test/test-utils';
 
 describe('PokemonsService', () => {
   let service: PokemonsService;
@@ -78,7 +79,7 @@ describe('PokemonsService', () => {
   });
 
   it('should return a pokemon from cache', async () => {
-    const cacheSpy = jest.spyOn(service.pokemonsCache, 'get');
+    const cacheSpy = testRunner.spyOn(service.pokemonsCache, 'get');
     const id = 1;
 
     await service.findOne(id);
@@ -114,8 +115,8 @@ describe('PokemonsService', () => {
   });
 
   it('should return pokemons from cache', async () => {
-    const cacheSpy = jest.spyOn(service.paginatedPokemonsCache, 'get');
-    const fetchSpy = jest.spyOn(global, 'fetch');
+    const cacheSpy = testRunner.spyOn(service.paginatedPokemonsCache, 'get');
+    const fetchSpy = testRunner.spyOn(global, 'fetch');
 
     await service.findAll({ limit: 10, page: 1 });
     await service.findAll({ limit: 10, page: 1 });
